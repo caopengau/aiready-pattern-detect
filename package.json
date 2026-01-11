@@ -1,0 +1,73 @@
+{
+  "name": "@aiready/pattern-detect",
+  "version": "0.1.0",
+  "description": "Semantic duplicate pattern detection for AI-generated code - finds similar implementations that waste AI context tokens",
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "aiready-patterns": "./dist/cli.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "require": "./dist/index.js",
+      "import": "./dist/index.mjs"
+    }
+  },
+  "scripts": {
+    "build": "tsup src/index.ts src/cli.ts --format cjs,esm --dts",
+    "dev": "tsup src/index.ts src/cli.ts --format cjs,esm --dts --watch",
+    "test": "vitest run",
+    "lint": "eslint src",
+    "clean": "rm -rf dist"
+  },
+  "keywords": [
+    "aiready",
+    "duplicate-detection",
+    "semantic-analysis",
+    "code-patterns",
+    "ai-code",
+    "tech-debt",
+    "code-quality",
+    "refactoring",
+    "copilot",
+    "chatgpt",
+    "claude",
+    "ai-assisted-development",
+    "pattern-recognition",
+    "code-similarity",
+    "token-optimization"
+  ],
+  "author": "AIReady Team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/aiready/aiready.git",
+    "directory": "packages/pattern-detect"
+  },
+  "homepage": "https://aiready.dev",
+  "bugs": {
+    "url": "https://github.com/aiready/aiready/issues"
+  },
+  "dependencies": {
+    "@aiready/core": "workspace:*",
+    "commander": "^12.1.0",
+    "chalk": "^5.3.0"
+  },
+  "devDependencies": {
+    "tsup": "^8.3.5",
+    "eslint": "^9.17.0"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
