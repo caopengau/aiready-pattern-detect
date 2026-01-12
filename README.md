@@ -91,10 +91,9 @@ aiready-patterns ./src \
   --max-candidates 120 \
   --exclude "**/test/**"
 
-# Deep dive with streaming (thorough scan with progress)
+# Deep dive with streaming (comprehensive detection)
 aiready-patterns ./src \
   --no-approx \
-  --max-comparisons 100000 \
   --stream-results
 ```
 
@@ -308,14 +307,14 @@ aiready-patterns ./src --similarity 0.65
 # Lower threshold for more potential duplicates
 aiready-patterns ./src --similarity 0.55
 
-# Increase comparison budget for thorough analysis
-aiready-patterns ./src --max-comparisons 100000
+# Approximate mode is default (fast, with candidate filtering)
+aiready-patterns ./src
 
 # Exact mode with progress tracking (shows % and ETA)
-aiready-patterns ./src --no-approx --stream-results --max-blocks 100
+aiready-patterns ./src --no-approx --stream-results
 
 # Maximum speed (aggressive filtering)
-aiready-patterns ./src --max-blocks 200 --min-shared-tokens 12
+aiready-patterns ./src --min-shared-tokens 12 --min-lines 10
 ```
 
 ## 🎛️ Tuning Playbook
@@ -344,22 +343,78 @@ Use these presets to quickly balance precision, recall, and runtime:
 - Default balance: `minLines=5`, `minSharedTokens=8` works well for most repos. Reduce `minSharedTokens` only when you specifically want to catch more short helpers.
 
 **CLI Options:**
-- `--stream-results` - Output duplicates as found (useful for long analysis)
-- `--no-approx` - Disable candidate filtering (enables progress % and ETA)
-- `--max-comparisons N` - Cap total comparisons (default 50K)
-- `--max-blocks N` - Limit blocks analyzed (default 500)
+- `--stream-results` - Output duplicates as found (enabled by default)
+- `--no-approx` - Disable approximate mode (slower, O(B²) complexity, use with caution)
+- `--min-lines N` - Filter blocks smaller than N lines (default 5)
+
+### Controlling Analysis Scope
+
+The tool analyzes **all extracted code blocks** by default. Control scope using:
+
+**1. `--min-lines` (primary filter):**
+- Filters blocks during extraction (most efficient)
+- Higher values = focus on substantial functions
+- Lower values = catch smaller utility duplicates
+
+**2. `--no-approx` mode (use with caution):**
+- Disables approximate mode (candidate pre-filtering)
+- O(B²) complexity - compares every block to every other block
+- **Automatic safety limit:** 500K comparisons (~1000 blocks max)
+- Shows warning when used with >500 blocks
+- Approximate mode (default) is recommended for all use cases
+
+**Examples:**
+```bash
+# Focus on substantial functions only
+aiready-patterns ./src --min-lines 15
+
+# Comprehensive scan of all functions (recommended)
+aiready-patterns ./src --min-lines 5
+
+# Quick scan of major duplicates
+aiready-patterns ./src --min-lines 20
+```
+
+**Recommendations by codebase size:**
+
+| Repo Size | Files | Strategy | Expected Time |
+|-----------|-------|----------|---------------|
+| **Small** | <100 | Use defaults | <1s ✅ |
+| **Medium** | 100-500 | Use defaults | 1-5s ✅ |
+| **Large** | 500-1,000 | Use defaults or `--min-lines 10` | 3-10s ✅ |
+| **Very Large** | 1,000-5,000 | `--min-lines 15` or analyze by module | 5-20s ⚠️ |
+| **Super Large** | 5,000+ | **Analyze by module** (see below) | 10-60s per module ⚠️ |
+
+### Analyzing Very Large Repositories
+
+For repos with 1,000+ files, use modular analysis:
+
+```bash
+# Analyze by top-level directory
+for dir in src/*/; do
+  echo "Analyzing $dir"
+  aiready-patterns "$dir" --min-lines 10
+done
+
+# Or focus on specific high-value areas
+aiready-patterns ./src/api --min-lines 10
+aiready-patterns ./src/core --min-lines 10
+aiready-patterns ./src/services --min-lines 10
+
+# For super large repos (5K+ files), increase thresholds
+aiready-patterns ./src/backend --min-lines 20 --similarity 0.50
+```
+
+**Why modular analysis?**
+- Ensures comprehensive coverage (100% of each module)
+- Avoids hitting comparison budget limits
+- Provides focused, actionable results per module
+- Better for CI/CD integration (parallel jobs)
 
 **Progress Indicators:**
 - **Approx mode**: Shows blocks processed + duplicates found
 - **Exact mode**: Shows % complete, ETA, and comparisons processed
-- **Stream mode**: Prints each duplicate immediately when found
-
-**Recommendations:**
-- **< 100 files**: Use defaults (~1s typical)
-- **100-500 files**: Use defaults (2-5s typical)
-- **500-1000 files**: Use `--max-blocks 500 --min-lines 10` (~3-10s)
-- **1000+ files**: Use `--max-blocks 300 --min-lines 15` or analyze by module
-- **Long analysis**: Add `--stream-results` to see progress in real-time
+- **Stream mode**: Prints each duplicate immediately when found (enabled by default)
 
 ## 🔧 CI/CD Integration
 

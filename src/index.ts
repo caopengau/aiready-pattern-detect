@@ -5,12 +5,10 @@ import { detectDuplicatePatterns, type PatternType } from './detector';
 export interface PatternDetectOptions extends ScanOptions {
   minSimilarity?: number; // 0-1, default 0.40 (Jaccard similarity)
   minLines?: number; // Minimum lines to consider, default 5
-  maxBlocks?: number; // Maximum blocks to analyze (prevents OOM), default 500
   batchSize?: number; // Batch size for comparisons, default 100
   approx?: boolean; // Use approximate candidate selection (default true)
   minSharedTokens?: number; // Minimum shared tokens to consider a candidate, default 8
   maxCandidatesPerBlock?: number; // Cap candidates per block, default 100
-  maxComparisons?: number; // Maximum total comparisons budget, default 50000
   streamResults?: boolean; // Output duplicates incrementally as found (default false)
 }
 
@@ -19,12 +17,11 @@ export interface PatternSummary {
   totalTokenCost: number;
   patternsByType: Record<PatternType, number>;
   topDuplicates: Array<{
-    file1: string;
-    file2: string;
-    line1: number;
-    line2: number;
-    endLine1: number;
-    endLine2: number;
+    files: Array<{
+      path: string;
+      startLine: number;
+      endLine: number;
+    }>;
     similarity: number;
     patternType: PatternType;
     tokenCost: number;
@@ -65,12 +62,10 @@ export async function analyzePatterns(
   const {
     minSimilarity = 0.4, // Jaccard similarity default (40% threshold)
     minLines = 5,
-    maxBlocks = 500,
     batchSize = 100,
     approx = true,
     minSharedTokens = 8,
     maxCandidatesPerBlock = 100,
-    maxComparisons = 50000,
     streamResults = false,
     ...scanOptions
   } = options;
@@ -90,12 +85,10 @@ export async function analyzePatterns(
   const duplicates = await detectDuplicatePatterns(fileContents, {
     minSimilarity,
     minLines,
-    maxBlocks,
     batchSize,
     approx,
     minSharedTokens,
     maxCandidatesPerBlock,
-    maxComparisons,
     streamResults,
   });
 
@@ -184,12 +177,18 @@ export function generateSummary(
       const fileMatch = issue.message.match(/similar to (.+?) \(/);
 
       return {
-        file1: issue.location.file,
-        file2: fileMatch?.[1] || 'unknown',
-        line1: issue.location.line,
-        line2: 0, // Not available from Issue
-        endLine1: 0, // Not available from Issue
-        endLine2: 0, // Not available from Issue
+        files: [
+          {
+            path: issue.location.file,
+            startLine: issue.location.line,
+            endLine: 0, // Not available from Issue
+          },
+          {
+            path: fileMatch?.[1] || 'unknown',
+            startLine: 0, // Not available from Issue
+            endLine: 0, // Not available from Issue
+          },
+        ],
         similarity: similarityMatch
           ? parseInt(similarityMatch[1]) / 100
           : 0,

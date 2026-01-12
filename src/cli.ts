@@ -16,13 +16,11 @@ program
   .argument('<directory>', 'Directory to analyze')
   .option('-s, --similarity <number>', 'Minimum similarity score (0-1)', '0.40')
   .option('-l, --min-lines <number>', 'Minimum lines to consider', '5')
-  .option('--max-blocks <number>', 'Maximum blocks to analyze (prevents OOM)', '500')
   .option('--batch-size <number>', 'Batch size for comparisons', '100')
   .option('--no-approx', 'Disable approximate candidate selection (faster on small repos, slower on large)')
   .option('--min-shared-tokens <number>', 'Minimum shared tokens to consider a candidate', '8')
   .option('--max-candidates <number>', 'Maximum candidates per block', '100')
-  .option('--max-comparisons <number>', 'Maximum total comparisons budget', '50000')
-  .option('--stream-results', 'Output duplicates incrementally as found')
+  .option('--no-stream-results', 'Disable incremental output (default: enabled)')
   .option('--include <patterns>', 'File patterns to include (comma-separated)')
   .option('--exclude <patterns>', 'File patterns to exclude (comma-separated)')
   .option(
@@ -39,13 +37,11 @@ program
       rootDir: directory,
       minSimilarity: parseFloat(options.similarity),
       minLines: parseInt(options.minLines),
-      maxBlocks: parseInt(options.maxBlocks),
       batchSize: parseInt(options.batchSize),
       approx: options.approx !== false, // default true; --no-approx sets to false
       minSharedTokens: parseInt(options.minSharedTokens),
       maxCandidatesPerBlock: parseInt(options.maxCandidates),
-      maxComparisons: parseInt(options.maxComparisons),
-      streamResults: options.streamResults === true, // default false; --stream-results sets to true
+      streamResults: options.streamResults !== false, // default true; --no-stream-results sets to false
       include: options.include?.split(','),
       exclude: options.exclude?.split(','),
     });
@@ -137,12 +133,14 @@ program
             `${Math.round(dup.similarity * 100)}%`
           )} ${getPatternIcon(dup.patternType)} ${chalk.white(dup.patternType)}`
         );
-        console.log(
-          `   ${chalk.dim(dup.file1)}:${chalk.cyan(dup.line1)}-${chalk.cyan(dup.endLine1)}`
-        );
-        console.log(
-          `   ${chalk.dim('↔')} ${chalk.dim(dup.file2)}:${chalk.cyan(dup.line2)}-${chalk.cyan(dup.endLine2)}`
-        );
+        
+        dup.files.forEach((file, fileIdx) => {
+          const prefix = fileIdx === 0 ? '   ' : '   ↔ ';
+          console.log(
+            `${chalk.dim(prefix)}${chalk.dim(file.path)}:${chalk.cyan(file.startLine)}-${chalk.cyan(file.endLine)}`
+          );
+        });
+        
         console.log(
           `   ${chalk.red(`${dup.tokenCost.toLocaleString()} tokens wasted`)}\n`
         );
@@ -249,8 +247,7 @@ function generateHTMLReport(
         <tr>
           <th>Similarity</th>
           <th>Type</th>
-          <th>File 1</th>
-          <th>File 2</th>
+          <th>Files</th>
           <th>Token Cost</th>
         </tr>
       </thead>
@@ -262,8 +259,7 @@ function generateHTMLReport(
           <tr>
             <td class="${dup.similarity > 0.95 ? 'critical' : dup.similarity > 0.9 ? 'major' : 'minor'}">${Math.round(dup.similarity * 100)}%</td>
             <td>${dup.patternType}</td>
-            <td><code>${dup.file1}</code></td>
-            <td><code>${dup.file2}</code></td>
+            <td>${dup.files.map((f: any) => `<code>${f.path}:${f.startLine}-${f.endLine}</code>`).join('<br>↔<br>')}</td>
             <td>${dup.tokenCost.toLocaleString()}</td>
           </tr>
         `

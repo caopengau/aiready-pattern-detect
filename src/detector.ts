@@ -244,18 +244,20 @@ export async function detectDuplicatePatterns(
   const {
     minSimilarity,
     minLines,
-    maxBlocks = 500,
     batchSize = 100,
     approx = true,
     minSharedTokens = 8,
     maxCandidatesPerBlock = 100,
-    maxComparisons = 50000, // Cap at 50K comparisons by default
     streamResults = false,
   } = options;
   const duplicates: DuplicatePattern[] = [];
+  
+  // Safety limit only for --no-approx mode (O(B²) worst case)
+  // Approximate mode has natural limits and doesn't need budget
+  const maxComparisons = approx ? Infinity : 500000;
 
   // Extract blocks from all files
-  let allBlocks: CodeBlock[] = files.flatMap((file) =>
+  const allBlocks: CodeBlock[] = files.flatMap((file) =>
     extractCodeBlocks(file.content, minLines).map((block) => ({
       content: block.content,
       startLine: block.startLine,
@@ -269,15 +271,14 @@ export async function detectDuplicatePatterns(
   );
 
   console.log(`Extracted ${allBlocks.length} code blocks for analysis`);
-
-  // Limit blocks to prevent OOM
-  if (allBlocks.length > maxBlocks) {
-    console.log(`⚠️  Limiting to ${maxBlocks} blocks (sorted by size) to prevent memory issues`);
-    console.log(`   Use --max-blocks to increase limit or --min-lines to filter smaller blocks`);
-    allBlocks = allBlocks
-      .sort((a, b) => b.linesOfCode - a.linesOfCode)
-      .slice(0, maxBlocks);
+  
+  // Warn about --no-approx performance implications
+  if (!approx && allBlocks.length > 500) {
+    console.log(`⚠️  Using --no-approx mode with ${allBlocks.length} blocks may be slow (O(B²) complexity).`);
+    console.log(`   Consider using approximate mode (default) for better performance.`);
   }
+
+  // Use minLines to control scope instead of arbitrary block limits
 
   // Tokenize blocks for candidate selection
   const stopwords = new Set([
@@ -367,7 +368,11 @@ export async function detectDuplicatePatterns(
 
     if (approx && candidates) {
       for (const { j } of candidates) {
-        if (maxComparisons && comparisonsProcessed >= maxComparisons) break;
+        if (!approx && maxComparisons !== Infinity && comparisonsProcessed >= maxComparisons) {
+          console.log(`⚠️  Comparison safety limit reached (${maxComparisons.toLocaleString()} comparisons in --no-approx mode).`);
+          console.log(`   This prevents excessive runtime on large repos. Consider using approximate mode (default) or --min-lines to reduce blocks.`);
+          break;
+        }
         comparisonsProcessed++;
         const block2 = allBlocks[j];
 
