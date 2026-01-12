@@ -7,6 +7,11 @@ export interface PatternDetectOptions extends ScanOptions {
   minLines?: number; // Minimum lines to consider, default 5
   maxBlocks?: number; // Maximum blocks to analyze (prevents OOM), default 500
   batchSize?: number; // Batch size for comparisons, default 100
+  approx?: boolean; // Use approximate candidate selection (default true)
+  minSharedTokens?: number; // Minimum shared tokens to consider a candidate, default 8
+  maxCandidatesPerBlock?: number; // Cap candidates per block, default 100
+  fastMode?: boolean; // Use fast Jaccard similarity (default true)
+  maxComparisons?: number; // Maximum total comparisons budget, default 50000
 }
 
 export interface PatternSummary {
@@ -53,7 +58,18 @@ function getRefactoringSuggestion(
 export async function analyzePatterns(
   options: PatternDetectOptions
 ): Promise<AnalysisResult[]> {
-  const { minSimilarity = 0.85, minLines = 5, maxBlocks = 500, batchSize = 100, ...scanOptions } = options;
+  const {
+    minSimilarity = 0.85,
+    minLines = 5,
+    maxBlocks = 500,
+    batchSize = 100,
+    approx = true,
+    minSharedTokens = 8,
+    maxCandidatesPerBlock = 100,
+    fastMode = true,
+    maxComparisons = 50000,
+    ...scanOptions
+  } = options;
 
   const files = await scanFiles(scanOptions);
   const results: AnalysisResult[] = [];
@@ -72,6 +88,11 @@ export async function analyzePatterns(
     minLines,
     maxBlocks,
     batchSize,
+    approx,
+    minSharedTokens,
+    maxCandidatesPerBlock,
+    fastMode,
+    maxComparisons,
   });
 
   for (const file of files) {

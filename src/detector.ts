@@ -31,6 +31,11 @@ interface DetectionOptions {
   minLines: number;
   maxBlocks?: number;
   batchSize?: number;
+  approx?: boolean; // Use approximate candidate selection to reduce comparisons
+  minSharedTokens?: number; // Minimum shared tokens to consider a candidate
+  maxCandidatesPerBlock?: number; // Cap candidates per block
+  fastMode?: boolean; // Use fast Jaccard similarity instead of Levenshtein (default true)
+  maxComparisons?: number; // Maximum total comparisons budget
 }
 
 interface CodeBlock {
@@ -206,6 +211,22 @@ function normalizeCode(code: string): string {
 }
 
 /**
+ * Fast Jaccard similarity on token sets - O(N+M) instead of O(N×M)
+ */
+function jaccardSimilarity(tokens1: string[], tokens2: string[]): number {
+  const set1 = new Set(tokens1);
+  const set2 = new Set(tokens2);
+  
+  let intersection = 0;
+  for (const token of set1) {
+    if (set2.has(token)) intersection++;
+  }
+  
+  const union = set1.size + set2.size - intersection;
+  return union === 0 ? 0 : intersection / union;
+}
+
+/**
  * Calculate structural similarity between two code blocks
  * Uses multiple similarity metrics for better accuracy
  */
@@ -232,7 +253,17 @@ export async function detectDuplicatePatterns(
   files: FileContent[],
   options: DetectionOptions
 ): Promise<DuplicatePattern[]> {
-  const { minSimilarity, minLines, maxBlocks = 500, batchSize = 100 } = options;
+  const {
+    minSimilarity,
+    minLines,
+    maxBlocks = 500,
+    batchSize = 100,
+    approx = true,
+    minSharedTokens = 8,
+    maxCandidatesPerBlock = 100,
+    fastMode = true,
+    maxComparisons = 50000, // Cap at 50K comparisons by default
+  } = options;
   const duplicates: DuplicatePattern[] = [];
 
   // Extract blocks from all files
@@ -256,55 +287,151 @@ export async function detectDuplicatePatterns(
       .slice(0, maxBlocks);
   }
 
-  // Process in batches to reduce memory pressure
-  const totalComparisons = (allBlocks.length * (allBlocks.length - 1)) / 2;
-  console.log(`Processing ${totalComparisons.toLocaleString()} comparisons in batches...`);
+  // Tokenize blocks for candidate selection
+  const stopwords = new Set([
+    'return', 'const', 'let', 'var', 'function', 'class', 'new', 'if', 'else', 'for', 'while',
+    'async', 'await', 'try', 'catch', 'switch', 'case', 'default', 'import', 'export', 'from',
+    'true', 'false', 'null', 'undefined', 'this'
+  ]);
+  const tokenize = (norm: string): string[] =>
+    norm
+      .split(/[\s(){}\[\];,\.]+/)
+      .filter((t) => t && t.length >= 3 && !stopwords.has(t.toLowerCase()));
 
-  let comparisonsProcessed = 0;
-  const startTime = Date.now();
+  const blockTokens: string[][] = allBlocks.map((b) => tokenize(b.normalized));
 
-  // Compare all pairs of blocks
-  for (let i = 0; i < allBlocks.length; i++) {
-    // Progress reporting every batch
-    if (i % batchSize === 0 && i > 0) {
-      const progress = (comparisonsProcessed / totalComparisons * 100).toFixed(1);
-      const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-      console.log(`   ${progress}% complete (${comparisonsProcessed.toLocaleString()}/${totalComparisons.toLocaleString()} comparisons, ${elapsed}s elapsed)`);
-      
-      // Allow garbage collection between batches
-      await new Promise(resolve => setImmediate(resolve));
-    }
-
-    for (let j = i + 1; j < allBlocks.length; j++) {
-      comparisonsProcessed++;
-      const block1 = allBlocks[i];
-      const block2 = allBlocks[j];
-
-      // Skip comparing blocks from the same file
-      if (block1.file === block2.file) continue;
-
-      // Skip if patterns are different types (optional optimization)
-      // Comment out if you want cross-type comparisons
-      // if (block1.patternType !== block2.patternType && 
-      //     block1.patternType !== 'unknown' && 
-      //     block2.patternType !== 'unknown') continue;
-
-      const similarity = calculateSimilarity(block1.content, block2.content);
-
-      if (similarity >= minSimilarity) {
-        duplicates.push({
-          file1: block1.file,
-          file2: block2.file,
-          line1: block1.startLine,
-          line2: block2.startLine,
-          similarity,
-          snippet: block1.content.split('\n').slice(0, 5).join('\n') + '\n...',
-          patternType: block1.patternType,
-          tokenCost: block1.tokenCost + block2.tokenCost,
-          linesOfCode: block1.linesOfCode,
-        });
+  // Build inverted index token -> block ids (for approx mode)
+  const invertedIndex: Map<string, number[]> = new Map();
+  if (approx) {
+    for (let i = 0; i < blockTokens.length; i++) {
+      for (const tok of blockTokens[i]) {
+        let arr = invertedIndex.get(tok);
+        if (!arr) {
+          arr = [];
+          invertedIndex.set(tok, arr);
+        }
+        arr.push(i);
       }
     }
+  }
+
+  // Process comparisons (exact or approximate) in batches to reduce memory pressure
+  const totalComparisons = approx
+    ? undefined
+    : (allBlocks.length * (allBlocks.length - 1)) / 2;
+  if (totalComparisons !== undefined) {
+    console.log(`Processing ${totalComparisons.toLocaleString()} comparisons in batches...`);
+  } else {
+    console.log(`Using approximate candidate selection to reduce comparisons...`);
+  }
+
+  let comparisonsProcessed = 0;
+  let comparisonsBudgetExhausted = false;
+  const startTime = Date.now();
+
+  for (let i = 0; i < allBlocks.length; i++) {
+    if (maxComparisons && comparisonsProcessed >= maxComparisons) {
+      comparisonsBudgetExhausted = true;
+      break;
+    }
+    // Progress reporting every batch
+    if (i % batchSize === 0 && i > 0) {
+      const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+      if (totalComparisons !== undefined) {
+        const progress = ((comparisonsProcessed / totalComparisons) * 100).toFixed(1);
+        console.log(`   ${progress}% complete (${comparisonsProcessed.toLocaleString()}/${totalComparisons.toLocaleString()} comparisons, ${elapsed}s elapsed)`);
+      } else {
+        console.log(`   Processed ${i.toLocaleString()} blocks (${elapsed}s elapsed)`);
+      }
+      // Allow garbage collection between batches
+      await new Promise((resolve) => setImmediate(resolve));
+    }
+
+    const block1 = allBlocks[i];
+
+    // Build candidate list (approx mode)
+    let candidates: Array<{ j: number; shared: number }> | null = null;
+    if (approx) {
+      const counts: Map<number, number> = new Map();
+      for (const tok of blockTokens[i]) {
+        const ids = invertedIndex.get(tok);
+        if (!ids) continue;
+        for (const j of ids) {
+          if (j <= i) continue; // only forward pairs
+          if (allBlocks[j].file === block1.file) continue; // skip same-file
+          counts.set(j, (counts.get(j) || 0) + 1);
+        }
+      }
+      candidates = Array.from(counts.entries())
+        .filter(([, shared]) => shared >= minSharedTokens)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, maxCandidatesPerBlock)
+        .map(([j, shared]) => ({ j, shared }));
+    }
+
+    if (approx && candidates) {
+      for (const { j } of candidates) {
+        if (maxComparisons && comparisonsProcessed >= maxComparisons) break;
+        comparisonsProcessed++;
+        const block2 = allBlocks[j];
+
+        // Optional: skip cross-type comparisons unless unknown
+        // if (block1.patternType !== block2.patternType &&
+        //     block1.patternType !== 'unknown' && block2.patternType !== 'unknown') continue;
+
+        const similarity = fastMode
+          ? jaccardSimilarity(blockTokens[i], blockTokens[j])
+          : calculateSimilarity(block1.content, block2.content);
+        if (similarity >= minSimilarity) {
+          duplicates.push({
+            file1: block1.file,
+            file2: block2.file,
+            line1: block1.startLine,
+            line2: block2.startLine,
+            similarity,
+            snippet: block1.content.split('\n').slice(0, 5).join('\n') + '\n...',
+            patternType: block1.patternType,
+            tokenCost: block1.tokenCost + block2.tokenCost,
+            linesOfCode: block1.linesOfCode,
+          });
+        }
+      }
+    } else {
+      // Exact mode: compare against all subsequent blocks
+      for (let j = i + 1; j < allBlocks.length; j++) {
+        if (maxComparisons && comparisonsProcessed >= maxComparisons) break;
+        comparisonsProcessed++;
+        const block2 = allBlocks[j];
+
+        // Skip comparing blocks from the same file
+        if (block1.file === block2.file) continue;
+
+        // Optional: skip cross-type comparisons unless unknown
+        // if (block1.patternType !== block2.patternType &&
+        //     block1.patternType !== 'unknown' && block2.patternType !== 'unknown') continue;
+
+        const similarity = fastMode
+          ? jaccardSimilarity(blockTokens[i], blockTokens[j])
+          : calculateSimilarity(block1.content, block2.content);
+        if (similarity >= minSimilarity) {
+          duplicates.push({
+            file1: block1.file,
+            file2: block2.file,
+            line1: block1.startLine,
+            line2: block2.startLine,
+            similarity,
+            snippet: block1.content.split('\n').slice(0, 5).join('\n') + '\n...',
+            patternType: block1.patternType,
+            tokenCost: block1.tokenCost + block2.tokenCost,
+            linesOfCode: block1.linesOfCode,
+          });
+        }
+      }
+    }
+  }
+
+  if (comparisonsBudgetExhausted) {
+    console.log(`⚠️  Comparison budget exhausted (${maxComparisons.toLocaleString()} comparisons). Use --max-comparisons to increase.`);
   }
 
   // Sort by similarity descending, then by token cost

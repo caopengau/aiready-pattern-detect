@@ -18,6 +18,11 @@ program
   .option('-l, --min-lines <number>', 'Minimum lines to consider', '5')
   .option('--max-blocks <number>', 'Maximum blocks to analyze (prevents OOM)', '500')
   .option('--batch-size <number>', 'Batch size for comparisons', '100')
+  .option('--no-approx', 'Disable approximate candidate selection (faster on small repos, slower on large)')
+  .option('--min-shared-tokens <number>', 'Minimum shared tokens to consider a candidate', '8')
+  .option('--max-candidates <number>', 'Maximum candidates per block', '100')
+  .option('--no-fast-mode', 'Use slower but more accurate Levenshtein distance (default: fast Jaccard)')
+  .option('--max-comparisons <number>', 'Maximum total comparisons budget', '50000')
   .option('--include <patterns>', 'File patterns to include (comma-separated)')
   .option('--exclude <patterns>', 'File patterns to exclude (comma-separated)')
   .option(
@@ -35,6 +40,11 @@ program
       minLines: parseInt(options.minLines),
       maxBlocks: parseInt(options.maxBlocks),
       batchSize: parseInt(options.batchSize),
+      approx: options.approx !== false, // default true; --no-approx sets to false
+      minSharedTokens: parseInt(options.minSharedTokens),
+      maxCandidatesPerBlock: parseInt(options.maxCandidates),
+      fastMode: options.fastMode !== false, // default true; --no-fast-mode sets to false
+      maxComparisons: parseInt(options.maxComparisons),
       include: options.include?.split(','),
       exclude: options.exclude?.split(','),
     });

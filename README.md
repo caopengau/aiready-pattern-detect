@@ -210,35 +210,50 @@ Estimated tokens wasted when AI tools process duplicate code:
 
 ## ⚠️ Performance & Memory
 
-### Large Codebases
+### Algorithm Complexity
 
-Pattern detection uses **O(B²)** complexity where B = number of code blocks. For large repos:
+**Fast Mode (default)**: **O(B × C × T)** where:
+- B = number of blocks
+- C = average candidates per block (~100)  
+- T = average tokens per block (~50)
+- **Jaccard similarity** is O(T) instead of O(N²) Levenshtein
+
+**Exact Mode** (`--no-approx --no-fast-mode`): **O(B² × N²)** where:
+- B = number of blocks
+- N = average characters per block
+- **Not recommended for >100 files**
+
+### Performance Benchmarks
+
+| Repo Size | Blocks | Fast Mode | Exact Mode |
+|-----------|--------|-----------|------------|
+| Small (<100 files) | ~50 | <1s | ~10s |
+| Medium (100-500 files) | ~500 | ~2s | ~8 min |
+| Large (500+ files) | ~500 (capped) | ~2s | ~76 min |
+
+**Example:** 828 code blocks → limited to 500 → **2.4s** (fast) vs **76 min** (exact)
+
+### Tuning Options
 
 ```bash
-# Default: Limits to 500 blocks to prevent OOM
+# Default (fast and accurate enough for most use cases)
 aiready-patterns ./src
 
-# Increase for more thorough analysis (requires more memory)
-aiready-patterns ./src --max-blocks 1000
+# Increase quality at cost of speed
+aiready-patterns ./src --no-fast-mode --max-comparisons 100000
 
-# Reduce for faster analysis
-aiready-patterns ./src --max-blocks 200
+# Maximum speed (aggressive filtering)
+aiready-patterns ./src --max-blocks 200 --min-shared-tokens 12
 
-# Filter to larger patterns only
-aiready-patterns ./src --min-lines 15
+# Exact mode (slowest, most accurate)
+aiready-patterns ./src --no-approx --no-fast-mode --max-comparisons 500000
 ```
 
-**Memory Usage Guidelines:**
-- < 100 files: No limits needed
-- 100-500 files: Default (500 blocks) works well
-- 500-1000 files: Use `--max-blocks 1000` with `--min-lines 10`
-- 1000+ files: Use `--max-blocks 500` with `--min-lines 15`, or run per module
-
-**Node Memory Limit:**
-```bash
-# Increase Node.js heap size if needed
-NODE_OPTIONS="--max-old-space-size=4096" npx @aiready/pattern-detect ./src
-```
+**Recommendations:**
+- **< 100 files**: Use defaults, or try `--no-fast-mode` for higher accuracy
+- **100-500 files**: Use defaults with fast mode
+- **500-1000 files**: Use `--max-blocks 500 --min-lines 10`
+- **1000+ files**: Use `--max-blocks 300 --min-lines 15` or analyze by module
 
 ## 🔧 CI/CD Integration
 
