@@ -36,9 +36,8 @@ interface DetectionOptions {
   approx?: boolean; // Use approximate candidate selection to reduce comparisons
   minSharedTokens?: number; // Minimum shared tokens to consider a candidate
   maxCandidatesPerBlock?: number; // Cap candidates per block
-  fastMode?: boolean; // Use fast Jaccard similarity instead of Levenshtein (default true)
   maxComparisons?: number; // Maximum total comparisons budget
-  streamResults?: boolean; // Output duplicates as they're found (useful for slow mode)
+  streamResults?: boolean; // Output duplicates as they're found
 }
 
 interface CodeBlock {
@@ -233,25 +232,7 @@ function jaccardSimilarity(tokens1: string[], tokens2: string[]): number {
   return union === 0 ? 0 : intersection / union;
 }
 
-/**
- * Calculate structural similarity between two code blocks
- * Uses multiple similarity metrics for better accuracy
- */
-function calculateSimilarity(block1: string, block2: string): number {
-  const norm1 = normalizeCode(block1);
-  const norm2 = normalizeCode(block2);
-  
-  // Basic Levenshtein similarity
-  const baseSimilarity = similarityScore(norm1, norm2);
-  
-  // Token-based similarity (split by keywords/operators)
-  const tokens1 = norm1.split(/[\s(){}[\];,]+/).filter(Boolean);
-  const tokens2 = norm2.split(/[\s(){}[\];,]+/).filter(Boolean);
-  const tokenSimilarity = similarityScore(tokens1.join(' '), tokens2.join(' '));
-  
-  // Weighted average favoring token similarity
-  return baseSimilarity * 0.4 + tokenSimilarity * 0.6;
-}
+
 
 /**
  * Detect duplicate patterns across files with enhanced analysis
@@ -268,7 +249,6 @@ export async function detectDuplicatePatterns(
     approx = true,
     minSharedTokens = 8,
     maxCandidatesPerBlock = 100,
-    fastMode = true,
     maxComparisons = 50000, // Cap at 50K comparisons by default
     streamResults = false,
   } = options;
@@ -395,9 +375,7 @@ export async function detectDuplicatePatterns(
         // if (block1.patternType !== block2.patternType &&
         //     block1.patternType !== 'unknown' && block2.patternType !== 'unknown') continue;
 
-        const similarity = fastMode
-          ? jaccardSimilarity(blockTokens[i], blockTokens[j])
-          : calculateSimilarity(block1.content, block2.content);
+        const similarity = jaccardSimilarity(blockTokens[i], blockTokens[j]);
         if (similarity >= minSimilarity) {
           const duplicate = {
             file1: block1.file,
@@ -435,9 +413,7 @@ export async function detectDuplicatePatterns(
         // if (block1.patternType !== block2.patternType &&
         //     block1.patternType !== 'unknown' && block2.patternType !== 'unknown') continue;
 
-        const similarity = fastMode
-          ? jaccardSimilarity(blockTokens[i], blockTokens[j])
-          : calculateSimilarity(block1.content, block2.content);
+        const similarity = jaccardSimilarity(blockTokens[i], blockTokens[j]);
         if (similarity >= minSimilarity) {
           const duplicate = {
             file1: block1.file,

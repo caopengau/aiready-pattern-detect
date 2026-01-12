@@ -3,14 +3,13 @@ import type { AnalysisResult, Issue, ScanOptions } from '@aiready/core';
 import { detectDuplicatePatterns, type PatternType } from './detector';
 
 export interface PatternDetectOptions extends ScanOptions {
-  minSimilarity?: number; // 0-1, default 0.40 (Jaccard mode), 0.85+ for Levenshtein mode
+  minSimilarity?: number; // 0-1, default 0.40 (Jaccard similarity)
   minLines?: number; // Minimum lines to consider, default 5
   maxBlocks?: number; // Maximum blocks to analyze (prevents OOM), default 500
   batchSize?: number; // Batch size for comparisons, default 100
   approx?: boolean; // Use approximate candidate selection (default true)
   minSharedTokens?: number; // Minimum shared tokens to consider a candidate, default 8
   maxCandidatesPerBlock?: number; // Cap candidates per block, default 100
-  fastMode?: boolean; // Use fast Jaccard similarity (default true)
   maxComparisons?: number; // Maximum total comparisons budget, default 50000
   streamResults?: boolean; // Output duplicates incrementally as found (default false)
 }
@@ -64,14 +63,13 @@ export async function analyzePatterns(
   options: PatternDetectOptions
 ): Promise<AnalysisResult[]> {
   const {
-    minSimilarity = 0.65, // Lower default for fast Jaccard mode (Levenshtein would be 0.85+)
+    minSimilarity = 0.40, // Jaccard similarity default (40% threshold)
     minLines = 5,
     maxBlocks = 500,
     batchSize = 100,
     approx = true,
     minSharedTokens = 8,
     maxCandidatesPerBlock = 100,
-    fastMode = true,
     maxComparisons = 50000,
     streamResults = false,
     ...scanOptions
@@ -97,7 +95,6 @@ export async function analyzePatterns(
     approx,
     minSharedTokens,
     maxCandidatesPerBlock,
-    fastMode,
     maxComparisons,
     streamResults,
   });

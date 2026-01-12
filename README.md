@@ -237,34 +237,27 @@ Estimated tokens wasted when AI tools process duplicate code:
 
 ### Algorithm Complexity
 
-**Fast Mode (default)**: **O(B × C × T)** where:
+**Jaccard Similarity**: **O(B × C × T)** where:
 - B = number of blocks
 - C = average candidates per block (~100)  
 - T = average tokens per block (~50)
-- **Jaccard similarity** is O(T) instead of O(N²) Levenshtein
+- **O(T) per comparison** instead of O(N²)
 - **Default threshold: 0.40** (comprehensive detection including tests and helpers)
-
-**Exact Mode** (`--no-approx --no-fast-mode`): **O(B² × N²)** where:
-- B = number of blocks
-- N = average characters per block
-- **Levenshtein similarity** - more accurate, much slower
-- **Recommended threshold: 0.85+**
-- **Not recommended for >100 files**
 
 ### Performance Benchmarks
 
-| Repo Size | Blocks | Fast Mode | Exact Mode |
-|-----------|--------|-----------|------------|
-| Small (<100 files) | ~50 | <1s | ~10s |
-| Medium (100-500 files) | ~500 | ~2s | ~8 min |
-| Large (500+ files) | ~500 (capped) | ~2s | ~76 min |
+| Repo Size | Blocks | Analysis Time |
+|-----------|--------|--------------|
+| Small (<100 files) | ~50 | <1s |
+| Medium (100-500 files) | ~500 | ~2s |
+| Large (500+ files) | ~500 (capped) | ~2s |
 
-**Example:** 828 code blocks → limited to 500 → **2.4s** (fast) vs **76 min** (exact)
+**Example:** 828 code blocks → limited to 500 → **2.4s** analysis time
 
 ### Tuning Options
 
 ```bash
-# Default (fast Jaccard mode, 40% threshold - comprehensive detection)
+# Default (40% threshold - comprehensive detection)
 aiready-patterns ./src
 
 # Higher threshold for only obvious duplicates
@@ -273,22 +266,18 @@ aiready-patterns ./src --similarity 0.65
 # Lower threshold for more potential duplicates
 aiready-patterns ./src --similarity 0.55
 
-# Increase quality at cost of speed  
-aiready-patterns ./src --no-fast-mode --max-comparisons 100000
+# Increase comparison budget for thorough analysis
+aiready-patterns ./src --max-comparisons 100000
 
-# Exact mode with progress tracking (slowest, shows % and ETA)
-aiready-patterns ./src --no-approx --no-fast-mode --stream-results --max-blocks 100
+# Exact mode with progress tracking (shows % and ETA)
+aiready-patterns ./src --no-approx --stream-results --max-blocks 100
 
 # Maximum speed (aggressive filtering)
 aiready-patterns ./src --max-blocks 200 --min-shared-tokens 12
-
-# Exact mode (slowest, most accurate)
-aiready-patterns ./src --no-approx --no-fast-mode --max-comparisons 500000
 ```
 
 **CLI Options:**
 - `--stream-results` - Output duplicates as found (useful for long analysis)
-- `--no-fast-mode` - Use Levenshtein instead of Jaccard (more accurate, much slower)
 - `--no-approx` - Disable candidate filtering (enables progress % and ETA)
 - `--max-comparisons N` - Cap total comparisons (default 50K)
 - `--max-blocks N` - Limit blocks analyzed (default 500)
@@ -299,11 +288,11 @@ aiready-patterns ./src --no-approx --no-fast-mode --max-comparisons 500000
 - **Stream mode**: Prints each duplicate immediately when found
 
 **Recommendations:**
-- **< 100 files**: Use defaults, or try `--no-fast-mode` for higher accuracy
-- **100-500 files**: Use defaults with fast mode (2-5s typical)
+- **< 100 files**: Use defaults (~1s typical)
+- **100-500 files**: Use defaults (2-5s typical)
 - **500-1000 files**: Use `--max-blocks 500 --min-lines 10` (~3-10s)
 - **1000+ files**: Use `--max-blocks 300 --min-lines 15` or analyze by module
-- **Slow analysis**: Add `--stream-results` to see progress in real-time
+- **Long analysis**: Add `--stream-results` to see progress in real-time
 
 ## 🔧 CI/CD Integration
 

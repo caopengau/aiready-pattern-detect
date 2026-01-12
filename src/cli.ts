@@ -21,9 +21,8 @@ program
   .option('--no-approx', 'Disable approximate candidate selection (faster on small repos, slower on large)')
   .option('--min-shared-tokens <number>', 'Minimum shared tokens to consider a candidate', '8')
   .option('--max-candidates <number>', 'Maximum candidates per block', '100')
-  .option('--no-fast-mode', 'Use slower but more accurate Levenshtein distance (default: fast Jaccard)')
   .option('--max-comparisons <number>', 'Maximum total comparisons budget', '50000')
-  .option('--stream-results', 'Output duplicates incrementally as found (useful for slow analysis)')
+  .option('--stream-results', 'Output duplicates incrementally as found')
   .option('--include <patterns>', 'File patterns to include (comma-separated)')
   .option('--exclude <patterns>', 'File patterns to exclude (comma-separated)')
   .option(
@@ -35,6 +34,7 @@ program
   .action(async (directory, options) => {
     console.log(chalk.blue('🔍 Analyzing patterns...\n'));
 
+    const startTime = Date.now();
     const results = await analyzePatterns({
       rootDir: directory,
       minSimilarity: parseFloat(options.similarity),
@@ -44,13 +44,13 @@ program
       approx: options.approx !== false, // default true; --no-approx sets to false
       minSharedTokens: parseInt(options.minSharedTokens),
       maxCandidatesPerBlock: parseInt(options.maxCandidates),
-      fastMode: options.fastMode !== false, // default true; --no-fast-mode sets to false
       maxComparisons: parseInt(options.maxComparisons),
       streamResults: options.streamResults === true, // default false; --stream-results sets to true
       include: options.include?.split(','),
       exclude: options.exclude?.split(','),
     });
 
+    const elapsedTime = ((Date.now() - startTime) / 1000).toFixed(2);
     const summary = generateSummary(results);
     const totalIssues = results.reduce((sum, r) => sum + r.issues.length, 0);
 
@@ -97,6 +97,9 @@ program
       chalk.red(
         `💰 Token cost (wasted): ${chalk.bold(summary.totalTokenCost.toLocaleString())}`
       )
+    );
+    console.log(
+      chalk.gray(`⏱  Analysis time: ${chalk.bold(elapsedTime + 's')}`)
     );
 
     // Show breakdown by pattern type (only if duplicates exist)
