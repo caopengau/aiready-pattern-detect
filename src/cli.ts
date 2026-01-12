@@ -79,9 +79,13 @@ program
     }
 
     // Console output
-    console.log(chalk.cyan('━'.repeat(60)));
+    const terminalWidth = process.stdout.columns || 80;
+    const dividerWidth = Math.min(60, terminalWidth - 2);
+    const divider = '━'.repeat(dividerWidth);
+    
+    console.log(chalk.cyan(divider));
     console.log(chalk.bold.white('  PATTERN ANALYSIS SUMMARY'));
-    console.log(chalk.cyan('━'.repeat(60)) + '\n');
+    console.log(chalk.cyan(divider) + '\n');
 
     console.log(
       chalk.white(`📁 Files analyzed: ${chalk.bold(results.length)}`)
@@ -101,9 +105,9 @@ program
       .sort(([, a], [, b]) => b - a);
 
     if (sortedTypes.length > 0) {
-      console.log(chalk.cyan('\n━'.repeat(60)));
+      console.log(chalk.cyan('\n' + divider));
       console.log(chalk.bold.white('  PATTERNS BY TYPE'));
-      console.log(chalk.cyan('━'.repeat(60)) + '\n');
+      console.log(chalk.cyan(divider) + '\n');
 
       sortedTypes.forEach(([type, count]) => {
         const icon = getPatternIcon(type as PatternType);
@@ -113,9 +117,9 @@ program
 
     // Show top duplicates
     if (summary.topDuplicates.length > 0 && totalIssues > 0) {
-      console.log(chalk.cyan('\n━'.repeat(60)));
+      console.log(chalk.cyan('\n' + divider));
       console.log(chalk.bold.white('  TOP DUPLICATE PATTERNS'));
-      console.log(chalk.cyan('━'.repeat(60)) + '\n');
+      console.log(chalk.cyan(divider) + '\n');
 
       summary.topDuplicates.slice(0, 10).forEach((dup, idx) => {
         const severityColor =
@@ -152,9 +156,9 @@ program
     );
 
     if (criticalIssues.length > 0) {
-      console.log(chalk.cyan('━'.repeat(60)));
+      console.log(chalk.cyan(divider));
       console.log(chalk.bold.white('  CRITICAL ISSUES (>95% similar)'));
-      console.log(chalk.cyan('━'.repeat(60)) + '\n');
+      console.log(chalk.cyan(divider) + '\n');
 
       criticalIssues.slice(0, 5).forEach((issue) => {
         console.log(chalk.red('● ') + chalk.white(`${issue.file}:${issue.location.line}`));
@@ -168,7 +172,7 @@ program
       console.log(chalk.green('\n✨ Great! No duplicate patterns detected.\n'));
     }
 
-    console.log(chalk.cyan('━'.repeat(60)));
+    console.log(chalk.cyan(divider));
     
     if (totalIssues > 0) {
       console.log(
