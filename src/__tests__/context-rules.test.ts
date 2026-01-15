@@ -52,7 +52,7 @@ describe('Context-Aware Severity', () => {
       
       const result = calculateSeverity(file, file, code, 0.8, 20);
       
-      expect(result.severity).toBe('low');
+      expect(result.severity).toBe('minor');
       expect(result.reason).toContain('branding consistency');
       expect(result.matchedRule).toBe('templates');
     });
@@ -74,7 +74,7 @@ describe('Context-Aware Severity', () => {
       const result = calculateSeverity(file, file, code, 0.85, 15);
       
       // Debug: The detection is working now with 'await page' pattern
-      expect(result.severity).toBe('low');
+      expect(result.severity).toBe('minor');
       expect(result.reason).toContain('test independence');
       expect(result.matchedRule).toBe('e2e-page-objects');
     });
@@ -92,7 +92,7 @@ describe('Context-Aware Severity', () => {
       
       const result = calculateSeverity(file, file, code, 0.9, 10);
       
-      expect(result.severity).toBe('low');
+      expect(result.severity).toBe('minor');
       expect(result.matchedRule).toBe('config-files');
     });
   });
@@ -135,7 +135,7 @@ describe('Context-Aware Severity', () => {
       
       const result = calculateSeverity(file, file, code, 0.96, 20);
       
-      expect(result.severity).toBe('high');
+      expect(result.severity).toBe('major');
       expect(result.reason).toContain('consolidated');
     });
   });
@@ -183,9 +183,8 @@ describe('Context-Aware Severity', () => {
   describe('Severity Labels', () => {
     it('should return correct labels with emojis', () => {
       expect(getSeverityLabel('critical')).toContain('CRITICAL');
-      expect(getSeverityLabel('high')).toContain('HIGH');
-      expect(getSeverityLabel('medium')).toContain('MEDIUM');
-      expect(getSeverityLabel('low')).toContain('LOW');
+      expect(getSeverityLabel('major')).toContain('MAJOR');
+      expect(getSeverityLabel('minor')).toContain('MINOR');
       expect(getSeverityLabel('info')).toContain('INFO');
     });
   });
