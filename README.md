@@ -241,6 +241,10 @@ aiready scan ./src
 - [**@aiready/context-analyzer**](https://www.npmjs.com/package/@aiready/context-analyzer) - Context window cost analysis
 - [**@aiready/consistency**](https://www.npmjs.com/package/@aiready/consistency) - Consistency checking
 
+## 🌐 Visit Our Website
+
+**Try AIReady tools online and optimize your codebase:** [getaiready.dev](https://getaiready.dev)
+
 ---
 
 **Made with 💙 by the AIReady team** | [GitHub](https://github.com/caopengau/aiready)
