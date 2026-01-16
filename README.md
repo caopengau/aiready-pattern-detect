@@ -15,7 +15,7 @@ npx @aiready/pattern-detect ./src
 # Or use the unified CLI (includes all AIReady tools)
 npx @aiready/cli scan ./src
 
-# Or install globally for faster runs
+# Or install globally for simpler command and faster runs
 npm install -g @aiready/pattern-detect
 aiready-patterns ./src
 ```
