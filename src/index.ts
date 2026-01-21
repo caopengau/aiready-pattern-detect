@@ -9,8 +9,10 @@ import {
   type DuplicateGroup,
   type RefactorCluster,
 } from './grouping';
+import { calculatePatternScore } from './scoring';
 
 export type { PatternType, DuplicatePattern, Severity, DuplicateGroup, RefactorCluster };
+export { calculatePatternScore };
 
 export interface PatternDetectOptions extends ScanOptions {
   minSimilarity?: number; // 0-1, default 0.40 (Jaccard similarity)
