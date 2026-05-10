@@ -1,4 +1,4 @@
-import { AnalysisResult, Issue, Severity } from '@aiready/core';
+import { AnalysisResult, Issue, Severity, getSeverityLabel } from '@aiready/core';
 import type { PatternType } from './detector';
 
 export interface PatternSummary {
@@ -151,27 +151,6 @@ export function filterBySeverity(issues: Issue[], severity: string): Issue[] {
     Severity.Minor,
   ];
   return issues.filter((issue) => allowed.includes(issue.severity));
-}
-
-/**
- * Get human-readable label for severity.
- *
- * @param severity - The core severity type
- * @returns String representation: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW'
- */
-export function getSeverityLabel(severity: Severity): string {
-  switch (severity) {
-    case Severity.Critical:
-      return 'CRITICAL';
-    case Severity.Major:
-      return 'HIGH';
-    case Severity.Minor:
-      return 'MEDIUM';
-    case Severity.Info:
-      return 'LOW';
-    default:
-      return 'UNKNOWN';
-  }
 }
 
 /**

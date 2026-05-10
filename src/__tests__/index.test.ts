@@ -37,7 +37,6 @@ describe('pattern-detect index', () => {
     it('should export context-rules functions', () => {
       expect(typeof patternDetect.calculateSeverity).toBe('function');
       expect(typeof patternDetect.filterBySeverity).toBe('function');
-      expect(typeof patternDetect.getSeverityLabel).toBe('function');
     });
   });
 

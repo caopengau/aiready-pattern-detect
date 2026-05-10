@@ -15,7 +15,6 @@ export {
   PatternSummary,
   generateSummary,
   filterBySeverity,
-  getSeverityLabel,
   calculateSeverity,
   calculatePatternScore,
   Severity,
