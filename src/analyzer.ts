@@ -1,4 +1,10 @@
-import { scanFiles, readFileContent, Severity, IssueType, getSeverityLabel } from '@aiready/core';
+import {
+  scanFiles,
+  readFileContent,
+  Severity,
+  IssueType,
+  getSeverityLabel,
+} from '@aiready/core';
 import type { AnalysisResult, Issue } from '@aiready/core';
 import { detectDuplicatePatterns, type DuplicatePattern } from './detector';
 import {

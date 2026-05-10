@@ -1,4 +1,9 @@
-import { AnalysisResult, Issue, Severity, getSeverityLabel } from '@aiready/core';
+import {
+  AnalysisResult,
+  Issue,
+  Severity,
+  getSeverityLabel,
+} from '@aiready/core';
 import type { PatternType } from './detector';
 
 export interface PatternSummary {
