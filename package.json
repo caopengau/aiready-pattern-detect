@@ -36,6 +36,7 @@
     }
   },
   "scripts": {
+    "preinstall": "mkdir -p dist && touch dist/cli.js",
     "build": "tsup src/index.ts src/cli.ts src/analyzer-entry/index.ts src/detector-entry/index.ts src/scoring-entry/index.ts src/context-rules-entry/index.ts --format cjs,esm --dts",
     "dev": "tsup src/index.ts src/cli.ts src/analyzer-entry/index.ts src/detector-entry/index.ts src/scoring-entry/index.ts src/context-rules-entry/index.ts --format cjs,esm --dts --watch",
     "test": "vitest run",
