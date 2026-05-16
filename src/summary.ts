@@ -1,8 +1,4 @@
-import {
-  AnalysisResult,
-  Issue,
-  Severity,
-} from '@aiready/core';
+import { AnalysisResult, Issue, Severity } from '@aiready/core';
 import type { PatternType } from './detector';
 
 export interface PatternSummary {
