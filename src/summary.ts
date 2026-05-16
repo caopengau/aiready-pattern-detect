@@ -2,7 +2,6 @@ import {
   AnalysisResult,
   Issue,
   Severity,
-  getSeverityLabel,
 } from '@aiready/core';
 import type { PatternType } from './detector';
 
